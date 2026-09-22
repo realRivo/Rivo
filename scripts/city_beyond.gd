@@ -1,29 +1,89 @@
 extends Node3D
 
-const GRID_SIZE := 32
-const CELL_SIZE := 4.0
+# CityBeyond - Feature Set 1: Core City Engine
+# This build is intentionally self-contained so the project can run immediately
+# after cloning into Godot Android Editor.
+
+const GRID_SIZE := 48
+const CELL_SIZE := 2.5
 const WORLD_SIZE := GRID_SIZE * CELL_SIZE
+const ROAD_WIDTH := 1.25
+const SIM_STEP := 1.0
+const MAX_BUILDINGS := 220
+
+enum ZoneType { NONE, RESIDENTIAL, COMMERCIAL, INDUSTRIAL }
 
 var camera: Camera3D
 var city_root: Node3D
-var buildings_root: Node3D
 var roads_root: Node3D
-var sim_time := 0.0
+var zones_root: Node3D
+var buildings_root: Node3D
+var ui: CanvasLayer
+var info_label: Label
+var demand_label: Label
+var help_label: Label
+
+var sim_accum := 0.0
+var day := 1
 var population := 0
+var jobs := 0
+var money := 50000
+var happiness := 62.0
+var demand := {ZoneType.RESIDENTIAL: 0.72, ZoneType.COMMERCIAL: 0.48, ZoneType.INDUSTRIAL: 0.60}
+
+var zone_map: Dictionary = {}
+var building_map: Dictionary = {}
+var road_cells: Dictionary = {}
+var camera_target := Vector3.ZERO
+var camera_distance := 72.0
+var camera_yaw := 45.0
+var camera_pitch := 55.0
+var dragging := false
+var last_pointer := Vector2.ZERO
 
 func _ready() -> void:
     _create_world()
     _create_camera()
     _create_lighting()
-    _create_initial_roads()
-    _create_initial_zones()
-    _grow_initial_city()
+    _create_roads()
+    _create_zones()
+    _create_ui()
+    _spawn_starter_city()
+    _update_ui()
 
 func _process(delta: float) -> void:
-    sim_time += delta
-    if sim_time >= 3.0:
-        sim_time = 0.0
-        _simulate_growth()
+    sim_accum += delta
+    if sim_accum >= SIM_STEP:
+        sim_accum -= SIM_STEP
+        _simulate_one_day()
+
+func _unhandled_input(event: InputEvent) -> void:
+    if event is InputEventScreenTouch:
+        if event.pressed:
+            dragging = true
+            last_pointer = event.position
+        else:
+            dragging = false
+    elif event is InputEventScreenDrag and dragging:
+        var d := event.relative
+        camera_yaw -= d.x * 0.35
+        camera_pitch = clamp(camera_pitch - d.y * 0.18, 30.0, 78.0)
+        _update_camera()
+    elif event is InputEventMouseButton:
+        if event.button_index == MOUSE_BUTTON_LEFT:
+            dragging = event.pressed
+            last_pointer = event.position
+        elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+            camera_distance = max(30.0, camera_distance - 6.0)
+            _update_camera()
+        elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+            camera_distance = min(140.0, camera_distance + 6.0)
+            _update_camera()
+    elif event is InputEventMouseMotion and dragging:
+        var d := event.relative
+        camera_yaw -= d.x * 0.35
+        camera_pitch = clamp(camera_pitch - d.y * 0.18, 30.0, 78.0)
+        _update_camera()
 
 func _create_world() -> void:
     city_root = Node3D.new()
@@ -34,6 +94,10 @@ func _create_world() -> void:
     roads_root.name = "Roads"
     city_root.add_child(roads_root)
 
+    zones_root = Node3D.new()
+    zones_root.name = "Zones"
+    city_root.add_child(zones_root)
+
     buildings_root = Node3D.new()
     buildings_root.name = "Buildings"
     city_root.add_child(buildings_root)
@@ -43,9 +107,8 @@ func _create_world() -> void:
     var mesh := PlaneMesh.new()
     mesh.size = Vector2(WORLD_SIZE, WORLD_SIZE)
     ground.mesh = mesh
-
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color(0.18, 0.24, 0.19)
+    mat.albedo_color = Color(0.16, 0.21, 0.17)
     mat.roughness = 1.0
     ground.material_override = mat
     city_root.add_child(ground)
@@ -54,35 +117,54 @@ func _create_camera() -> void:
     camera = Camera3D.new()
     camera.name = "IsometricCamera"
     add_child(camera)
-    camera.position = Vector3(55.0, 62.0, 55.0)
-    camera.look_at(Vector3.ZERO, Vector3.UP)
-    camera.fov = 42.0
+    camera.fov = 48.0
     camera.current = true
+    _update_camera()
+
+func _update_camera() -> void:
+    if camera == null:
+        return
+    var yaw := deg_to_rad(camera_yaw)
+    var pitch := deg_to_rad(camera_pitch)
+    var horizontal := cos(pitch) * camera_distance
+    camera.position = camera_target + Vector3(cos(yaw) * horizontal, sin(pitch) * camera_distance, sin(yaw) * horizontal)
+    camera.look_at(camera_target, Vector3.UP)
 
 func _create_lighting() -> void:
     var sun := DirectionalLight3D.new()
     sun.name = "Sun"
     sun.rotation_degrees = Vector3(-52.0, -35.0, 0.0)
-    sun.light_energy = 1.1
+    sun.light_energy = 1.15
     sun.shadow_enabled = true
     add_child(sun)
 
-    var world_env := WorldEnvironment.new()
-    world_env.name = "WorldEnvironment"
+    var env_node := WorldEnvironment.new()
+    env_node.name = "WorldEnvironment"
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color(0.055, 0.075, 0.10)
+    env.background_color = Color(0.035, 0.05, 0.07)
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    env.ambient_light_color = Color(0.62, 0.68, 0.76)
-    env.ambient_light_energy = 0.65
-    world_env.environment = env
-    add_child(world_env)
+    env.ambient_light_color = Color(0.68, 0.72, 0.78)
+    env.ambient_light_energy = 0.72
+    env_node.environment = env
+    add_child(env_node)
 
-func _create_initial_roads() -> void:
-    for x in range(-3, 4):
-        _make_road(Vector3(float(x) * CELL_SIZE, 0.06, 0.0), Vector3(3.0, 0.10, WORLD_SIZE * 0.72))
-    for z in range(-3, 4):
-        _make_road(Vector3(0.0, 0.07, float(z) * CELL_SIZE), Vector3(WORLD_SIZE * 0.72, 0.10, 3.0))
+func _create_roads() -> void:
+    # A connected arterial grid. Road cells are also used by the growth system.
+    for gx in range(-16, 17, 8):
+        for gz in range(-18, 19):
+            _mark_road(gx, gz)
+    for gz in range(-16, 17, 8):
+        for gx in range(-18, 19):
+            _mark_road(gx, gz)
+
+    for gx in range(-16, 17, 8):
+        _make_road(Vector3(gx * CELL_SIZE, 0.06, 0.0), Vector3(ROAD_WIDTH, 0.12, WORLD_SIZE * 0.82))
+    for gz in range(-16, 17, 8):
+        _make_road(Vector3(0.0, 0.065, gz * CELL_SIZE), Vector3(WORLD_SIZE * 0.82, 0.12, ROAD_WIDTH))
+
+func _mark_road(gx: int, gz: int) -> void:
+    road_cells[Vector2i(gx, gz)] = true
 
 func _make_road(pos: Vector3, size: Vector3) -> void:
     var road := MeshInstance3D.new()
@@ -91,68 +173,195 @@ func _make_road(pos: Vector3, size: Vector3) -> void:
     road.mesh = mesh
     road.position = pos
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color(0.10, 0.11, 0.12)
-    mat.roughness = 0.92
+    mat.albedo_color = Color(0.075, 0.08, 0.085)
+    mat.roughness = 0.94
     road.material_override = mat
     roads_root.add_child(road)
 
-func _create_initial_zones() -> void:
-    for x in range(-7, 8):
-        for z in range(-7, 8):
-            if abs(x) <= 3 or abs(z) <= 3:
+    # Simple lane stripe gives the roads visual structure without external assets.
+    if size.x > size.z:
+        _make_road_marking(pos + Vector3(0, 0.065, 0), Vector3(size.x, 0.012, 0.045))
+    else:
+        _make_road_marking(pos + Vector3(0, 0.07, 0), Vector3(0.045, 0.012, size.z))
+
+func _make_road_marking(pos: Vector3, size: Vector3) -> void:
+    var stripe := MeshInstance3D.new()
+    var mesh := BoxMesh.new()
+    mesh.size = size
+    stripe.mesh = mesh
+    stripe.position = pos
+    var mat := StandardMaterial3D.new()
+    mat.albedo_color = Color(0.78, 0.72, 0.38)
+    stripe.material_override = mat
+    roads_root.add_child(stripe)
+
+func _create_zones() -> void:
+    for gx in range(-17, 18):
+        for gz in range(-17, 18):
+            if abs(gx) % 8 == 0 or abs(gz) % 8 == 0:
                 continue
-            if (x + z) % 3 == 0:
-                _make_zone(Vector3(x * CELL_SIZE, 0.03, z * CELL_SIZE), Color(0.20, 0.55, 0.30))
-            elif (x + z) % 3 == 1:
-                _make_zone(Vector3(x * CELL_SIZE, 0.035, z * CELL_SIZE), Color(0.22, 0.48, 0.70))
+            var zone := ZoneType.NONE
+            var block := (floori(float(gx + 17) / 8.0) + floori(float(gz + 17) / 8.0)) % 3
+            if block == 0:
+                zone = ZoneType.RESIDENTIAL
+            elif block == 1:
+                zone = ZoneType.COMMERCIAL
             else:
-                _make_zone(Vector3(x * CELL_SIZE, 0.04, z * CELL_SIZE), Color(0.72, 0.48, 0.20))
+                zone = ZoneType.INDUSTRIAL
+            zone_map[Vector2i(gx, gz)] = zone
+            _make_zone(gx, gz, zone)
 
-func _make_zone(pos: Vector3, zone_color: Color) -> void:
-    var zone := MeshInstance3D.new()
+func _zone_color(zone: int) -> Color:
+    if zone == ZoneType.RESIDENTIAL:
+        return Color(0.25, 0.72, 0.38, 0.22)
+    if zone == ZoneType.COMMERCIAL:
+        return Color(0.25, 0.48, 0.88, 0.22)
+    if zone == ZoneType.INDUSTRIAL:
+        return Color(0.86, 0.56, 0.22, 0.22)
+    return Color(0.0, 0.0, 0.0, 0.0)
+
+func _make_zone(gx: int, gz: int, zone: int) -> void:
+    var node := MeshInstance3D.new()
+    node.name = "Zone_%d_%d" % [gx, gz]
     var mesh := BoxMesh.new()
-    mesh.size = Vector3(CELL_SIZE - 0.18, 0.05, CELL_SIZE - 0.18)
-    zone.mesh = mesh
-    zone.position = pos
+    mesh.size = Vector3(CELL_SIZE - 0.10, 0.035, CELL_SIZE - 0.10)
+    node.mesh = mesh
+    node.position = Vector3(gx * CELL_SIZE, 0.025, gz * CELL_SIZE)
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = zone_color
+    mat.albedo_color = _zone_color(zone)
     mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-    mat.albedo_color.a = 0.34
-    zone.material_override = mat
-    city_root.add_child(zone)
+    node.material_override = mat
+    zones_root.add_child(node)
 
-func _grow_initial_city() -> void:
-    var positions := [
-        Vector3(-20, 0, -20), Vector3(-12, 0, -20), Vector3(20, 0, -20),
-        Vector3(-20, 0, -12), Vector3(20, 0, -12),
-        Vector3(-20, 0, 12), Vector3(20, 0, 12),
-        Vector3(-20, 0, 20), Vector3(-12, 0, 20), Vector3(20, 0, 20)
+func _spawn_starter_city() -> void:
+    # Hand-authored seed population so the simulation starts alive.
+    var seeds := [
+        Vector2i(-5,-5), Vector2i(-4,-5), Vector2i(-3,-5),
+        Vector2i(4,4), Vector2i(5,4), Vector2i(6,4),
+        Vector2i(-5,5), Vector2i(-4,5), Vector2i(4,-5)
     ]
-    for p in positions:
-        _spawn_building(p, 1)
+    for cell in seeds:
+        _grow_building(cell, zone_map.get(cell, ZoneType.RESIDENTIAL), 1)
 
-func _simulate_growth() -> void:
-    if buildings_root.get_child_count() >= 34:
+func _simulate_one_day() -> void:
+    day += 1
+
+    var occupied := buildings_root.get_child_count()
+    var capacity := max(1, occupied * 10)
+    var target_pop := min(capacity, int(population + max(1.0, demand[ZoneType.RESIDENTIAL] * 3.0)))
+    population = max(population, target_pop)
+
+    jobs = min(population, occupied * 7 + int(demand[ZoneType.COMMERCIAL] * 80.0))
+    money += 120 + int(population * 0.8)
+    happiness = clamp(happiness + (demand[ZoneType.RESIDENTIAL] - 0.5) * 1.5 - (float(max(0, population - jobs)) / max(1.0, population)) * 0.8, 0.0, 100.0)
+
+    demand[ZoneType.RESIDENTIAL] = clamp(0.78 - float(population) / 1800.0 + (0.65 - happiness / 100.0) * 0.15, 0.12, 0.95)
+    demand[ZoneType.COMMERCIAL] = clamp(0.50 + float(population) / 2400.0, 0.10, 0.92)
+    demand[ZoneType.INDUSTRIAL] = clamp(0.62 - float(jobs) / 3000.0 + float(max(0, population - jobs)) / 1500.0, 0.10, 0.92)
+
+    _try_growth()
+    _update_ui()
+
+func _try_growth() -> void:
+    if buildings_root.get_child_count() >= MAX_BUILDINGS:
         return
-    var n := buildings_root.get_child_count()
-    var gx := (n % 7) - 3
-    var gz := int(n / 7) - 3
-    var pos := Vector3(gx * CELL_SIZE * 1.35, 0.0, gz * CELL_SIZE * 1.35)
-    if abs(gx) <= 1 and abs(gz) <= 1:
-        pos.x += 14.0
-    _spawn_building(pos, 1 + int(n / 12))
 
-func _spawn_building(pos: Vector3, level: int) -> void:
+    var choices := [ZoneType.RESIDENTIAL, ZoneType.COMMERCIAL, ZoneType.INDUSTRIAL]
+    choices.sort_custom(func(a, b): return demand[a] > demand[b])
+
+    for zone in choices:
+        if demand[zone] < 0.38:
+            continue
+        var candidate := _find_growth_cell(zone)
+        if candidate != Vector2i(9999, 9999):
+            var level := 1
+            if demand[zone] > 0.72 and day % 6 == 0:
+                level = 2
+            _grow_building(candidate, zone, level)
+            break
+
+func _find_growth_cell(zone: int) -> Vector2i:
+    var best := Vector2i(9999, 9999)
+    var best_score := -9999.0
+    for cell in zone_map.keys():
+        if zone_map[cell] != zone or building_map.has(cell):
+            continue
+        var road_distance := _distance_to_road(cell)
+        if road_distance > 4:
+            continue
+        var score := 10.0 - road_distance
+        score += randf() * 1.5
+        if score > best_score:
+            best_score = score
+            best = cell
+    return best
+
+func _distance_to_road(cell: Vector2i) -> int:
+    var best := 99
+    for road in road_cells.keys():
+        best = min(best, abs(cell.x - road.x) + abs(cell.y - road.y))
+    return best
+
+func _grow_building(cell: Vector2i, zone: int, level: int) -> void:
+    if building_map.has(cell):
+        return
+
     var b := MeshInstance3D.new()
-    b.name = "Building_%d" % buildings_root.get_child_count()
+    b.name = "Building_%d_%d" % [cell.x, cell.y]
+    var h := 2.0 + float(level) * 1.6
+    var width := CELL_SIZE * 0.76
+    if zone == ZoneType.RESIDENTIAL:
+        width = CELL_SIZE * 0.70
+    elif zone == ZoneType.INDUSTRIAL:
+        width = CELL_SIZE * 0.82
+
     var mesh := BoxMesh.new()
-    var height := 2.5 + float(level) * 1.8
-    mesh.size = Vector3(2.7, height, 2.7)
+    mesh.size = Vector3(width, h, width)
     b.mesh = mesh
-    b.position = Vector3(pos.x, height * 0.5, pos.z)
+    b.position = Vector3(cell.x * CELL_SIZE, h * 0.5, cell.y * CELL_SIZE)
+
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color(0.42 + 0.04 * (level % 3), 0.46 + 0.03 * (level % 4), 0.52 + 0.02 * (level % 5))
-    mat.roughness = 0.72
+    if zone == ZoneType.RESIDENTIAL:
+        mat.albedo_color = Color(0.58, 0.67, 0.72)
+    elif zone == ZoneType.COMMERCIAL:
+        mat.albedo_color = Color(0.28, 0.43, 0.62)
+    else:
+        mat.albedo_color = Color(0.55, 0.48, 0.35)
+    mat.roughness = 0.68
     b.material_override = mat
     buildings_root.add_child(b)
-    population += 4 * level
+    building_map[cell] = {"zone": zone, "level": level}
+    population += 10 if zone == ZoneType.RESIDENTIAL else 0
+
+func _create_ui() -> void:
+    ui = CanvasLayer.new()
+    ui.name = "HUD"
+    add_child(ui)
+
+    var panel := ColorRect.new()
+    panel.position = Vector2(18, 18)
+    panel.size = Vector2(350, 128)
+    panel.color = Color(0.035, 0.045, 0.06, 0.88)
+    ui.add_child(panel)
+
+    info_label = Label.new()
+    info_label.position = Vector2(34, 28)
+    info_label.add_theme_font_size_override("font_size", 20)
+    ui.add_child(info_label)
+
+    demand_label = Label.new()
+    demand_label.position = Vector2(34, 80)
+    demand_label.add_theme_font_size_override("font_size", 17)
+    ui.add_child(demand_label)
+
+    help_label = Label.new()
+    help_label.position = Vector2(18, 660)
+    help_label.add_theme_font_size_override("font_size", 16)
+    help_label.text = "CITYBEYOND  •  Drag = rotate/pan camera   •   Wheel = zoom"
+    ui.add_child(help_label)
+
+func _update_ui() -> void:
+    if info_label == null:
+        return
+    info_label.text = "CityBeyond   Day %d\nPopulation %d   Jobs %d\nTreasury $%d   Happiness %d%%" % [day, population, jobs, money, int(happiness)]
+    demand_label.text = "R %d%%    C %d%%    I %d%%" % [int(demand[ZoneType.RESIDENTIAL] * 100), int(demand[ZoneType.COMMERCIAL] * 100), int(demand[ZoneType.INDUSTRIAL] * 100)]
