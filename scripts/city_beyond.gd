@@ -346,7 +346,6 @@ func _simulate_one_day() -> void:
     match zone:
       ZoneType.RESIDENTIAL:
         residential += 1
-        total_capacity += 18 * level
       ZoneType.COMMERCIAL:
         commercial += 1
       ZoneType.INDUSTRIAL:
