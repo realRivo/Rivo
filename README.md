@@ -63,9 +63,26 @@ The current main scene now includes a dedicated economy simulation:
 
 The economy layer is intentionally lightweight at this milestone. Deeper budget categories, loans, unique city policies, trade, imports/exports and detailed household/business accounting are later simulation work.
 
+## Feature Set 4 — Traffic & Transport — COMPLETE
+
+The current main scene now includes a lightweight mobile-friendly traffic layer:
+
+- Moving road vehicles
+- Traffic volume driven by population, jobs and buildings
+- Congestion calculation and speed reduction
+- Intersection traffic-light visuals
+- Public bus vehicles
+- Bus ridership simulation
+- Traffic & Transport HUD
+- Traffic state feedback: free flow, busy and heavy congestion
+
+### Current limitation
+
+Traffic currently uses a procedural road-loop model rather than full lane-by-lane pathfinding. Junction routing, turning lanes, accidents, parking, pedestrian simulation and player-placeable transit routes are later traffic milestones.
+
 ## Planned feature sets
 
-4. Traffic & transport: vehicles, intersections, congestion and public transport.
+5. Services: police, fire, healthcare, education and garbage.
 
 4. Traffic & transport: vehicles, intersections, congestion and public transport.
 
