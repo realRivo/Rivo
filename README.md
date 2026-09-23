@@ -2,29 +2,35 @@
 
 CityBeyond is a mobile-first 3D city-building simulator made with Godot 4.
 
-## Feature Set 1 — Core City Engine
+## Feature Set 1 — Core City Engine — COMPLETE
 
-Implemented in the current build:
+The main scene now contains a playable procedural core city simulation:
 
 - 48x48 build grid
 - 3D ground and readable cell grid
 - isometric-style orbit camera
 - touch drag camera rotation
-- mouse rotation/zoom for desktop testing
+- mouse rotation and zoom for desktop testing
 - connected arterial road grid
 - R/C/I zoning
 - mobile-friendly zoning buttons
 - tap-to-zone empty cells
 - automatic residential/commercial/industrial building growth
-- basic building levels
+- demand-driven development
+- basic building levels and periodic upgrades
+- varied procedural building dimensions/materials
 - population and jobs simulation
-- R/C/I demand simulation
-- treasury and happiness simulation
+- treasury, income and expense simulation
+- happiness and unemployment effects
 - pause/resume
 - 1x / 2x / 4x simulation speed
-- live HUD
+- live city HUD
+- selected-cell feedback
+- road-access rule for automatic growth
 
-The current buildings are procedural placeholder geometry. Asset integration and higher visual fidelity are planned for later feature sets.
+### Current limitation
+
+Buildings are still procedural placeholder geometry. This milestone is about making the core city systems playable and connected. Production-quality 3D assets, detailed roads, props, utilities, traffic and services are subsequent feature sets.
 
 ## Android workflow
 
@@ -34,7 +40,7 @@ The project is configured for Godot 4 and the OpenGL Compatibility renderer for 
 
 2. Utilities: electricity, water, sewage and coverage.
 
-3. Economy: taxes, income/expenses, land value and deeper demand.
+3. Economy: taxes, land value and deeper demand.
 
 4. Traffic & transport: vehicles, intersections, congestion and public transport.
 
