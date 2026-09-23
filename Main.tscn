@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource path="res://scripts/city_beyond.gd" type="Script" id="1"]
 [ext_resource path="res://scripts/utilities.gd" type="Script" id="2"]
 [ext_resource path="res://scripts/economy.gd" type="Script" id="3"]
+[ext_resource path="res://scripts/traffic.gd" type="Script" id="4"]
 
 [node name="CityBeyond" type="Node3D"]
 script = ExtResource("1")
@@ -12,3 +13,6 @@ script = ExtResource("2")
 
 [node name="Economy" type="Node3D" parent="."]
 script = ExtResource("3")
+
+[node name="Traffic" type="Node3D" parent="."]
+script = ExtResource("4")
