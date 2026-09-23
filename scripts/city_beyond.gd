@@ -338,7 +338,6 @@ func _simulate_one_day() -> void:
   var residential := 0
   var commercial := 0
   var industrial := 0
-  var total_capacity := 0
 
   for cell in building_map:
     var data: Dictionary = building_map[cell]
@@ -362,7 +361,6 @@ func _simulate_one_day() -> void:
   jobs = commercial * 12 + industrial * 18
   monthly_income = 120 + int(population * 0.8) + commercial * 12 + industrial * 9
   monthly_expense = 80 + building_map.size() * 4
-  money += monthly_income - monthly_expense
 
   var unemployment := 0.0
   if population > 0:
