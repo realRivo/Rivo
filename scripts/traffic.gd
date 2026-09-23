@@ -195,3 +195,12 @@ func _update_ui() -> void:
   label.text = "TRAFFIC & TRANSPORT\nVehicles %d   Avg speed %.1f\nCongestion %d%%   %s\nTrips/day %d   Bus riders %d" % [
     vehicles.size(), average_speed, int(congestion * 100.0), state, trips_per_day, bus_riders
   ]
+
+
+var bus_route_enabled := true
+
+func toggle_route() -> void:
+  bus_route_enabled = not bus_route_enabled
+  for data in buses:
+    var bus: MeshInstance3D = data["node"]
+    bus.visible = bus_route_enabled
