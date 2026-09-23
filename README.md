@@ -4,41 +4,48 @@ CityBeyond is a mobile-first 3D city-building simulator made with Godot 4.
 
 ## Feature Set 1 — Core City Engine — COMPLETE
 
-The main scene now contains a playable procedural core city simulation:
-
 - 48x48 build grid
 - 3D ground and readable cell grid
 - isometric-style orbit camera
 - touch drag camera rotation
-- mouse rotation and zoom for desktop testing
+- mouse rotation and zoom
 - connected arterial road grid
 - R/C/I zoning
-- mobile-friendly zoning buttons
-- tap-to-zone empty cells
-- automatic residential/commercial/industrial building growth
-- demand-driven development
-- basic building levels and periodic upgrades
-- varied procedural building dimensions/materials
-- population and jobs simulation
-- treasury, income and expense simulation
-- happiness and unemployment effects
-- pause/resume
-- 1x / 2x / 4x simulation speed
-- live city HUD
-- selected-cell feedback
-- road-access rule for automatic growth
+- tap-to-zone
+- automatic demand-driven growth
+- building levels and upgrades
+- population, jobs, treasury and happiness simulation
+- pause/resume and 1x/2x/4x simulation speed
+- live HUD and selected-cell feedback
+
+## Feature Set 2 — Utilities — COMPLETE
+
+The current main scene now includes a dedicated utilities simulation:
+
+- Power network backbone
+- Water network backbone
+- Sewage network backbone
+- Utility service coverage radius
+- Per-building power demand
+- Per-building water demand
+- Per-building sewage load
+- Utility capacity limits
+- Automatic capacity expansion as the city grows
+- Unserved-building detection
+- Visible utility network lines
+- Utilities HUD showing demand/capacity and served buildings
+- Building visual feedback for utility coverage
+- Utility outage/unsatisfied-service state
 
 ### Current limitation
 
-Buildings are still procedural placeholder geometry. This milestone is about making the core city systems playable and connected. Production-quality 3D assets, detailed roads, props, utilities, traffic and services are subsequent feature sets.
+Buildings are still procedural placeholder geometry. Production-quality 3D assets, player-placeable utility branches, service buildings and deeper network routing are later milestones.
 
 ## Android workflow
 
 The project is configured for Godot 4 and the OpenGL Compatibility renderer for broad Android startup compatibility.
 
 ## Planned feature sets
-
-2. Utilities: electricity, water, sewage and coverage.
 
 3. Economy: taxes, land value and deeper demand.
 
