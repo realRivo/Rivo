@@ -45,9 +45,27 @@ Buildings are still procedural placeholder geometry. Production-quality 3D asset
 
 The project is configured for Godot 4 and the OpenGL Compatibility renderer for broad Android startup compatibility.
 
+## Feature Set 3 — Economy — COMPLETE
+
+The current main scene now includes a dedicated economy simulation:
+
+- Residential, commercial and industrial tax rates
+- In-game tax controls from 4% to 18%
+- City income and operating expenses
+- Road, building-service and utility maintenance costs
+- Treasury accounting
+- Land value simulation
+- Tax impact on residential demand and happiness
+- Utility-service impact on land value
+- Economy HUD with tax rates, income, expenses, land value and treasury
+
+### Current limitation
+
+The economy layer is intentionally lightweight at this milestone. Deeper budget categories, loans, unique city policies, trade, imports/exports and detailed household/business accounting are later simulation work.
+
 ## Planned feature sets
 
-3. Economy: taxes, land value and deeper demand.
+4. Traffic & transport: vehicles, intersections, congestion and public transport.
 
 4. Traffic & transport: vehicles, intersections, congestion and public transport.
 
